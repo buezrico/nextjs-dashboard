@@ -4,6 +4,9 @@ import { z } from "zod";
 import { sql } from "@vercel/postgres";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import credentials from "next-auth/providers/credentials";
+import { signIn } from "@/auth";
+import { AuthError } from "next-auth";
 
 export type State = {
   errors?: {
@@ -87,7 +90,7 @@ export async function updateInvoice(
     await sql`
   
     UPDATE invoices
-    SET customer_id = ${customerId}, amount=${amount}, status=${status}
+    SET customer_id = ${customerId}, amount=${amountInCents}, status=${status}
     WHERE id = ${id}
 
   `;
@@ -100,12 +103,29 @@ export async function updateInvoice(
 }
 
 export async function deleteInvoice(id: string) {
-  throw new Error("testing errord");
-
   try {
     await sql`DELETE FROM invoices WHERE id = ${id}`;
     revalidatePath("/dashboard/invoices");
   } catch (error) {
     return { message: "Database Error: failed to delete invoice" };
+  }
+}
+
+export async function aunthenticate(
+  prevState: string | undefined,
+  formData: FormData
+) {
+  try {
+    await signIn("credentials", formData);
+  } catch (error) {
+    if (error instanceof AuthError) {
+      switch (error.type) {
+        case "CredentialsSignin":
+          return "Invalid credentials";
+        default:
+          return "Something went wrong";
+      }
+    }
+    throw error;
   }
 }
